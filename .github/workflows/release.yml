@@ -1,0 +1,70 @@
+on:
+  push:
+    tags:
+      - "v*"
+
+name: Create Release
+jobs:
+  build:
+    name: Create Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          body: |
+            test
+          draft: false
+          prerelease: false
+      - name: Create tag name variable
+        id: vars
+        run: echo ::set-output name=tag::${GITHUB_REF#refs/*/}
+      - uses: actions/setup-go@v2
+        with:
+          go-version: "1.16"
+      - name: Build Linux
+        id: build-linux
+        run: go build -ldflags "-X jobify/cmd/jobify.Version=${{ steps.vars.outputs.tag }}"
+      - name: Upload Linux Binary
+        id: upload-release-asset-linux
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./jobify
+          asset_name: jobify_linux_${{ steps.vars.outputs.tag }}
+          asset_content_type: application/octet-stream
+      - name: Build Windows
+        id: build-windows
+        run: GOOS=windows GOARCH=amd64 go build -ldflags "-X jobify/cmd/jobify.Version=${{ steps.vars.outputs.tag }}"
+      - name: Upload Windows Binary
+        id: upload-release-asset-windows
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./jobify
+          asset_name: jobify_windows_${{ steps.vars.outputs.tag }}
+          asset_content_type: application/octet-stream
+      - name: Build MacOS
+        id: build-darwin
+        run: GOOS=darwin GOARCH=amd64 go build -ldflags "-X jobify/cmd/jobify.Version=${{ steps.vars.outputs.tag }}"
+      - name: Upload MacOS Binary
+        id: upload-release-asset-darwin
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./jobify
+          asset_name: jobify_darwin_${{ steps.vars.outputs.tag }}
+          asset_content_type: application/octet-stream
